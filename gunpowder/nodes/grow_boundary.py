@@ -66,10 +66,20 @@ class GrowBoundary(BatchFilter):
             assert gt.shape == gt_mask.shape, "GT_LABELS and GT_MASK do not have the same size."
 
         if only_xy:
-            assert len(gt.shape) == 3
-            for z in range(gt.shape[0]):
-                self.__grow(gt[z], None if gt_mask is None else gt_mask[z])
-            return
+            if len(gt.shape) == 3:
+                for z in range(gt.shape[0]):
+                    self.__grow(gt[z], None if gt_mask is None else gt_mask[z])
+                return
+            elif len(gt.shape) == 4:
+                assert gt.shape[0] == 1
+                gtshape = gt.shape
+                gt.shape = (gt.shape[1], gt.shape[2], gt.shape[3])
+                for z in range(gt.shape[0]):
+                    self.__grow(gt[z], None if gt_mask is None else gt_mask[z])
+                gt.shape = gtshape
+                return
+            else:
+                assert len(gt.shape) == 3
 
         # get all foreground voxels by erosion of each component
         foreground = np.zeros(shape=gt.shape, dtype=np.bool)

@@ -59,7 +59,7 @@ class RandomLocation(BatchFilter):
             Default value is 1.0.
     '''
 
-    def __init__(self, min_masked=0, mask=None, ensure_nonempty=None, p_nonempty=1.0):
+    def __init__(self, min_masked=0, mask=None, ensure_nonempty=None, p_nonempty=1.0, onlyInDim=None):
 
         self.min_masked = min_masked
         self.mask = mask
@@ -70,6 +70,7 @@ class RandomLocation(BatchFilter):
         self.p_nonempty = p_nonempty
         self.upstream_spec = None
         self.random_shift = None
+        self.onlyInDim = onlyInDim
 
     def setup(self):
 
@@ -203,7 +204,7 @@ class RandomLocation(BatchFilter):
         assert not total_shift_roi.unbounded(), (
             "Can not pick a random location, intersection of upstream ROIs is "
             "unbounded.")
-        assert total_shift_roi.size() > 0, (
+        assert sum(total_shift_roi.get_shape()) > 0, (
             "Can not satisfy batch request, no location covers all requested "
             "ROIs.")
 
@@ -414,9 +415,26 @@ class RandomLocation(BatchFilter):
     def __select_random_location(self, lcm_shift_roi, lcm_voxel_size):
 
         # select a random point inside ROI
-        random_shift = Coordinate(
-            randint(int(begin), int(end-1))
-            for begin, end in zip(lcm_shift_roi.get_begin(), lcm_shift_roi.get_end()))
+        if self.onlyInDim is None:
+            random_shift = Coordinate(
+                randint(int(begin), int(end-1))
+                for begin, end in zip(lcm_shift_roi.get_begin(),
+                                      lcm_shift_roi.get_end()))
+        else:
+            random_shift = []
+            for begin, end in zip(lcm_shift_roi.get_begin(),
+                                  lcm_shift_roi.get_end()):
+                random_shift.append((end-begin)//2)
+            random_shift[onlyInDim] = randint(int(begin), int(end-1))
+            random_shift = Coordinate(random_shift)
+        # random_shift = []
+        # for begin, end in zip(lcm_shift_roi.get_begin(),
+        #                       lcm_shift_roi.get_end()):
+        #     if int(begin) == int(end):
+        #         random_shift.append(int(begin))
+        #     else:
+        #         random_shift.append(randrange(int(begin), int(end)))
+        # random_shift = Coordinate(random_shift)
 
         random_shift *= lcm_voxel_size
 

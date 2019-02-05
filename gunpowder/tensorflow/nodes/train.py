@@ -219,7 +219,7 @@ class Train(GenericTrain):
 
             self.full_saver.save(
                 self.session,
-                checkpoint_name)
+                os.path.join(os.getcwd(), checkpoint_name))
 
     def stop(self):
 
