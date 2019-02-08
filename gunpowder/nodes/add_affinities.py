@@ -149,7 +149,11 @@ class AddAffinities(BatchFilter):
         arr = batch.arrays[self.labels].data.astype(np.int32)
         if arr.shape[0] == 1:
             arr.shape = arr.shape[1:]
-        affinities = malis.seg_to_affgraph(
+        if len(arr.shape) == 2:
+            seg_to_affgraph_fun = malis.seg_to_affgraph_2d
+        else:
+            seg_to_affgraph_fun = malis.seg_to_affgraph
+        affinities = seg_to_affgraph_fun(
                 arr,
                 self.affinity_neighborhood
         ).astype(np.uint8)
@@ -175,7 +179,7 @@ class AddAffinities(BatchFilter):
 
                 logger.debug("computing ground-truth affinities mask from "
                              "labels mask")
-                affinities_mask = malis.seg_to_affgraph(
+                affinities_mask = seg_to_affgraph_fun(
                     batch.arrays[self.labels_mask].data.astype(np.int32),
                     self.affinity_neighborhood)
                 affinities_mask = affinities_mask[(slice(None),)+crop]
@@ -188,7 +192,7 @@ class AddAffinities(BatchFilter):
 
                 # 1 for all affinities between unlabelled voxels
                 unlabelled = (1 - batch.arrays[self.unlabelled].data)
-                unlabelled_mask = malis.seg_to_affgraph(
+                unlabelled_mask = seg_to_affgraph_fun(
                     unlabelled.astype(np.int32),
                     self.affinity_neighborhood)
                 unlabelled_mask = unlabelled_mask[(slice(None),)+crop]
