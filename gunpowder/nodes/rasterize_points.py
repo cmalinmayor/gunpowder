@@ -263,7 +263,7 @@ class RasterizePoints(BatchFilter):
             data=rasterized_points_data,
             spec=spec)
         batch.arrays[self.array] = rasterized_points.crop(request[self.array].roi)
-
+        batch.arrays[self.array].data = np.expand_dims(batch.arrays[self.array].data, axis=0)
         # restore requested ROI of points
         if self.points in request:
             request_roi = request[self.points].roi

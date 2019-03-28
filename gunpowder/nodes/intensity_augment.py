@@ -42,7 +42,7 @@ class IntensityAugment(BatchFilter):
 
         assert not self.z_section_wise or raw.spec.roi.dims() == 3, "If you specify 'z_section_wise', I expect 3D data."
         assert raw.data.dtype == np.float32 or raw.data.dtype == np.float64, "Intensity augmentation requires float types for the raw array (not " + str(raw.data.dtype) + "). Consider using Normalize before."
-        assert raw.data.min() >= 0 and raw.data.max() <= 1, "Intensity augmentation expects raw values in [0,1]. Consider using Normalize before."
+        # assert raw.data.min() >= 0 and raw.data.max() <= 1, "Intensity augmentation expects raw values in [0,1]. Consider using Normalize before."
 
         if self.z_section_wise:
             for z in range((raw.spec.roi/self.spec[self.array].voxel_size).get_shape()[0]):
@@ -57,8 +57,8 @@ class IntensityAugment(BatchFilter):
                     np.random.uniform(low=self.shift_min, high=self.shift_max))
 
         # clip values, we might have pushed them out of [0,1]
-        raw.data[raw.data>1] = 1
-        raw.data[raw.data<0] = 0
+        # raw.data[raw.data>1] = 1
+        # raw.data[raw.data<0] = 0
 
     def __augment(self, a, scale, shift):
 

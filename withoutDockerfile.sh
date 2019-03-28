@@ -72,4 +72,4 @@ cd ..
 export PYTHONPATH=${PWD}:$PYTHONPATH
 echo $PYTHONPATH
 echo $PWD
-python test_environment.py
+# python test_environment.py
