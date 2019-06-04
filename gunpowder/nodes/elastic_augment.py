@@ -226,6 +226,8 @@ class ElasticAugment(BatchFilter):
             array.spec.roi = request[array_key].roi
 
         for (points_key, points) in batch.points.items():
+            if points_key not in request:
+                continue
 
             for point_id, point in list(points.data.items()):
 
@@ -312,6 +314,7 @@ class ElasticAugment(BatchFilter):
                     subsample=self.subsample)
         rotation = random.random()*self.rotation_max_amount + self.rotation_start
         if rotation != 0:
+            logger.debug("rotating by %s degree", rotation)
             transformation += augment.create_rotation_transformation(
                     target_shape,
                     rotation,

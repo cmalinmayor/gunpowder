@@ -82,6 +82,8 @@ class GrowBoundary(BatchFilter):
                 assert len(gt.shape) == 3
 
         # get all foreground voxels by erosion of each component
+        gtshape = gt.shape
+        gt.shape = (gt.shape[1], gt.shape[2], gt.shape[3])
         foreground = np.zeros(shape=gt.shape, dtype=np.bool)
         masked = None
         if gt_mask is not None:
@@ -100,4 +102,7 @@ class GrowBoundary(BatchFilter):
 
         # label new background
         background = np.logical_not(foreground)
+
+        gt.shape = gtshape
+        background.shape = gtshape
         gt[background] = self.background

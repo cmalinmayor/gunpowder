@@ -183,6 +183,12 @@ class RandomLocation(BatchFilter):
         total_shift_roi = None
 
         for key, spec in request.items():
+            logger.debug("key " + str(key))
+            logger.debug("spec " + str(spec))
+            request_roi = spec.roi
+            logger.debug("request_roi " + str(request_roi))
+            provided_roi = self.upstream_spec[key].roi
+            logger.debug("provided_roi " + str(provided_roi))
 
             request_roi = spec.roi
             provided_roi = self.upstream_spec[key].roi
@@ -194,11 +200,12 @@ class RandomLocation(BatchFilter):
                 -request_roi.get_shape()
             )
 
+            logger.debug("shift_roi " + str(shift_roi))
             if total_shift_roi is None:
                 total_shift_roi = shift_roi
             else:
                 total_shift_roi = total_shift_roi.intersect(shift_roi)
-
+            logger.debug("total_shift_roi " + str(total_shift_roi))
         logger.debug("valid shifts for request in " + str(total_shift_roi))
 
         assert not total_shift_roi.unbounded(), (

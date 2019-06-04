@@ -252,16 +252,21 @@ class Scan(BatchFilter):
         coordinate in any dimension will be the last point inside the shift roi
         in this dimension.'''
 
-        min_shift = shift_roi.get_offset()
+        print(shift_roi)
+        min_shift = []
+        max_shift = []
         # max_shift = Coordinate(m - 1 for m in shift_roi.get_end())
         ms = []
-        for m in shift_roi.get_end():
-            if m < 1:
-                ms.append(0)
+        for i in range(shift_roi.dims()):
+            if (shift_roi.get_end()[i]-shift_roi.get_begin()[i]) <= 1:
+                min_shift.append(0)
+                max_shift.append(0)
             else:
-                ms.append(m-1)
-        max_shift = Coordinate(ms)
-        print(max_shift)
+                min_shift.append(shift_roi.get_begin()[i])
+                max_shift.append(shift_roi.get_end()[i]-1)
+        min_shift = Coordinate(min_shift)
+        max_shift = Coordinate(max_shift)
+        print(min_shift, max_shift)
         shift = np.array(min_shift)
         shifts = []
 

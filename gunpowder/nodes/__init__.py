@@ -1,12 +1,14 @@
 from __future__ import absolute_import
 
 from .add_affinities import AddAffinities
+from .addCPV import AddCPV
 from .balance_labels import BalanceLabels
 from .batch_filter import BatchFilter
 from .batch_provider import BatchProvider
 from .crop import Crop
 from .csv_points_source import CsvPointsSource
 from .daisy_request_blocks import DaisyRequestBlocks
+from .csv_id_points_source import CsvIDPointsSource
 from .defect_augment import DefectAugment
 from .downsample import DownSample
 from .dvid_source import DvidSource

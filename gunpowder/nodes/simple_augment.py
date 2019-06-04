@@ -110,16 +110,16 @@ class SimpleAugment(BatchFilter):
 
             for loc_id, syn_point in list(points.data.items()):
                 # mirror
-                location_in_total_offset = np.asarray(syn_point.location) - total_roi_offset
-                syn_point.location = np.asarray([self.total_roi.get_end()[dim] - location_in_total_offset[dim]
-                                                 if m else syn_point.location[dim] for dim, m in enumerate(self.mirror)])
+                location_in_total_offset = np.asarray(points.data[loc_id].location) - total_roi_offset
+                points.data[loc_id].location = np.asarray([self.total_roi.get_end()[dim] - location_in_total_offset[dim]
+                                                 if m else points.data[loc_id].location[dim] for dim, m in enumerate(self.mirror)])
                 # transpose
                 if self.transpose != tuple(range(self.dims)):
                     syn_point.location = np.asarray([syn_point.location[self.transpose[d]] for d in range(self.dims)])
 
                 # due to the mirroring, points at the lower boundary of the ROI
                 # could fall on the upper one, which excludes them from the ROI
-                if not points.spec.roi.contains(syn_point.location):
+                if not points.spec.roi.contains(points.data[loc_id].location):
                     del points.data[loc_id]
 
         # arrays & points

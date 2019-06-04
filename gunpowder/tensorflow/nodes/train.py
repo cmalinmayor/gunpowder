@@ -155,9 +155,12 @@ class Train(GenericTrain):
         logger.info("Initializing tf session, connecting to %s...", target)
 
         self.graph = tf.Graph()
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = False
         self.session = tf.Session(
             target=target,
-            graph=self.graph)
+            graph=self.graph,
+            config=config)
 
         with self.graph.as_default():
             self.__read_meta_graph()
