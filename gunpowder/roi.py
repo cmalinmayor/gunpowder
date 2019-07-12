@@ -159,6 +159,13 @@ class Roi(Freezable):
 
         return self.size() == 0
 
+    def empty2(self):
+        '''Test if this ROI is empty.'''
+        for d in self.__shape:
+            if d != 0:
+                return False
+        return True
+
     def unbounded(self):
         '''Test if this ROI is unbounded.'''
 
@@ -190,7 +197,7 @@ class Roi(Freezable):
 
         assert self.dims() == other.dims()
 
-        if self.empty() or other.empty():
+        if self.empty2() or other.empty2():
             return False
 
         # separated if at least one dimension is separated

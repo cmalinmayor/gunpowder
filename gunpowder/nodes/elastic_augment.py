@@ -130,7 +130,8 @@ class ElasticAugment(BatchFilter):
         self.transformations = {}
         self.target_rois = {}
         for key, spec in request.items():
-
+            if "ANCHOR" == key.identifier:
+                continue
             target_roi = Roi(
                 spec.roi.get_begin()[-self.spatial_dims:],
                 spec.roi.get_shape()[-self.spatial_dims:])
@@ -195,7 +196,8 @@ class ElasticAugment(BatchFilter):
     def process(self, batch, request):
 
         for (array_key, array) in batch.arrays.items():
-
+            if "ANCHOR" == array_key.identifier:
+                continue
             # for arrays, the target ROI and the requested ROI should be the
             # same in spatial coordinates
             assert (
