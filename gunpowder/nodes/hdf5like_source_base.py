@@ -88,6 +88,7 @@ class Hdf5LikeSource(BatchProvider):
         batch = Batch()
 
         with self._open_file(self.filename) as data_file:
+            logger.debug("Reading from %s...", self.filename)
             for (array_key, request_spec) in request.array_specs.items():
                 logger.debug("Reading %s in %s...", array_key, request_spec.roi)
 

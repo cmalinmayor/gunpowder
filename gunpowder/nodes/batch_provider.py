@@ -170,8 +170,9 @@ class BatchProvider(object):
             provided_roi = provided_spec.roi
             request_roi = request_spec.roi
 
-#            if provided_roi is not None:
-#                assert provided_roi.contains(request_roi), "%s: %s's ROI %s outside of my ROI %s"%(self.name(), key, request_roi, provided_roi)
+            # TODO: check
+            # if provided_roi is not None:
+            #     assert provided_roi.contains(request_roi), "%s: %s's ROI %s outside of my ROI %s"%(self.name(), key, request_roi, provided_roi)
 
             if isinstance(key, ArrayKey):
 

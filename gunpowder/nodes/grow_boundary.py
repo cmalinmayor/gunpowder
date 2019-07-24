@@ -88,9 +88,29 @@ class GrowBoundary(BatchFilter):
         masked = None
         if gt_mask is not None:
             masked = np.equal(gt_mask, 0)
+        # TODO: check
+        # if len(np.unique(gt)) == 3:
+        #     print("check grow boundary!")
+        #     print("dilation")
+        #     label_mask = gt==2
+        #     # Assume that masked out values are the same as the label we are
+        #     # eroding in this iteration. This ensures that at the boundary to
+        #     # a masked region the value blob is not shrinking.
+        #     eroded_label_mask = ndimage.binary_dilation(label_mask, iterations=self.steps, border_value=1)
+        #     # foreground = np.logical_or(eroded_label_mask, foreground)
+
+        #     # label new background
+        #     # background = np.logical_not(foreground)
+        #     gt[eroded_label_mask] = 2
+        #     return
+
         for label in np.unique(gt):
             if label == self.background:
                 continue
+            # TODO: check
+            # if len(np.unique(gt)) == 3 and label != 2:
+            #     continue
+
             label_mask = gt==label
             # Assume that masked out values are the same as the label we are
             # eroding in this iteration. This ensures that at the boundary to
