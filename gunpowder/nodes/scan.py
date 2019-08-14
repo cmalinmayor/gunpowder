@@ -268,12 +268,12 @@ class Scan(BatchFilter):
 
         dims = len(min_shift)
 
-        logger.debug(
+        logger.info(
             "enumerating possible shifts of %s in %s", stride, shift_roi)
 
         while True:
 
-            logger.debug("adding %s", shift)
+            logger.info("adding %s", shift)
             shifts.append(Coordinate(shift))
 
             if (shift == max_shift).all():
