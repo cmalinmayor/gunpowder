@@ -59,7 +59,10 @@ class RandomLocation(BatchFilter):
             Default value is 1.0.
     '''
 
-    def __init__(self, min_masked=0, mask=None, ensure_nonempty=None, p_nonempty=1.0, onlyInDim=None):
+    def __init__(self, min_masked=0, mask=None, ensure_nonempty=None,
+                 p_nonempty=1.0, onlyInDim=None,
+                 roi_subs_for_ensure_nonempty=None,
+                 accept_close_by_points=False):
 
         self.min_masked = min_masked
         self.mask = mask
@@ -71,6 +74,8 @@ class RandomLocation(BatchFilter):
         self.upstream_spec = None
         self.random_shift = None
         self.onlyInDim = onlyInDim
+        self.roi_subs_for_ensure_nonempty = roi_subs_for_ensure_nonempty
+        self.accept_close_by_points = accept_close_by_points
 
     def setup(self):
 
@@ -112,7 +117,6 @@ class RandomLocation(BatchFilter):
 
             points_request = BatchRequest({self.ensure_nonempty: points_spec})
             points_batch = upstream.request_batch(points_request)
-
             self.points = KDTree([
                 p.location
                 for p in points_batch[self.ensure_nonempty].data.values()])
@@ -302,7 +306,16 @@ class RandomLocation(BatchFilter):
             lcm_shift_roi,
             lcm_voxel_size):
 
-        request_points_roi = request[self.ensure_nonempty].roi
+        if self.ensure_nonempty not in request:
+            if self.roi_subs_for_ensure_nonempty is not None:
+                request_points_roi = request[
+                    self.roi_subs_for_ensure_nonempty].roi
+            else:
+                raise Exception(
+                    'Please add ensure_nonempty to your batch request or '
+                    'specify substitute to use required roi from.')
+        else:
+            request_points_roi = request[self.ensure_nonempty].roi
 
         while True:
 
@@ -419,8 +432,11 @@ class RandomLocation(BatchFilter):
             # accept this shift with p=1/num_points
             #
             # This is to compensate the bias introduced by close-by points.
-            accept = random() <= 1.0/num_points
-            if accept:
+            if not self.accept_close_by_points:
+                accept = random() <= 1.0/num_points
+                if accept:
+                    return random_shift
+            else:
                 return random_shift
 
     def __select_random_location(self, lcm_shift_roi, lcm_voxel_size):
