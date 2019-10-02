@@ -1,4 +1,4 @@
-from random import choice
+from random import choice, randrange
 import logging
 import numpy as np
 
@@ -37,7 +37,8 @@ class SpecifiedLocation(BatchFilter):
             dataset so it must be a data format compatible with hdf5.
     '''
 
-    def __init__(self, locations, choose_randomly=False, extra_data=None):
+    def __init__(self, locations, choose_randomly=False, extra_data=None,
+                 jitter=None):
 
         self.coordinates = locations
         self.choose_randomly = choose_randomly
@@ -45,6 +46,7 @@ class SpecifiedLocation(BatchFilter):
         self.upstream_spec = None
         self.upstream_roi = None
         self.specified_shift = None
+        self.jitter = jitter
 
         if extra_data is not None:
             assert len(extra_data) == len(locations),\
@@ -79,8 +81,10 @@ class SpecifiedLocation(BatchFilter):
             else:
                 raise Exception(
                     "Requested %s, but upstream does not provide it."%key)
-            key_shift_roi = provided_roi.shift(-request_roi.get_begin()).grow((0, 0, 0),
-                                                    -request_roi.get_shape())
+            key_shift_roi = provided_roi.shift(
+                -request_roi.get_begin()).grow(
+                    Coordinate((0,)*request_roi.dims()),
+                    -request_roi.get_shape())
 
             if shift_roi is None:
                 shift_roi = key_shift_roi
@@ -93,14 +97,25 @@ class SpecifiedLocation(BatchFilter):
         center_shift = spec.roi.get_shape()/2 + spec.roi.get_offset()
 
         self.specified_shift = self._get_next_shift(center_shift)
+        if self.jitter is not None:
+            rnd = []
+            for i in range(len(self.jitter)):
+                rnd.append(np.random.randint(-self.jitter[i],
+                                              self.jitter[i]+1))
+            self.specified_shift += Coordinate(rnd)
+
 
         # Set shift for all requests
         for specs_type in [request.array_specs, request.points_specs]:
             for (key, spec) in specs_type.items():
                 roi = spec.roi.shift(self.specified_shift)
+                lcm_voxel_size = self.spec.get_lcm_voxel_size(
+                    request.array_specs.keys())
+                roi = roi.snap_to_grid(lcm_voxel_size, mode='closest')
                 specs_type[key].roi = roi
 
-        logger.debug("{}'th shift selected: {}".format(self.loc_i, self.specified_shift))
+        logger.debug("{}'th ({}) shift selected: {}".format(
+            self.loc_i, self.coordinates[self.loc_i], self.specified_shift))
 
     def process(self, batch, request):
         # reset ROIs to request
@@ -119,14 +134,15 @@ class SpecifiedLocation(BatchFilter):
                 batch.points[points_key].data[point_id].location -= self.specified_shift
 
     def _get_next_shift(self, center_shift):
-        # gets next corrdinate from list
+        # gets next coordinate from list
 
         if self.choose_randomly:
-            next_shift = choice(self.coordinates) - center_shift
+            self.loc_i = randrange(len(self.coordinates))
         else:
-            next_shift = Coordinate(self.coordinates[self.loc_i] - center_shift)
             self.loc_i += 1
             if self.loc_i >= len(self.coordinates):
                 self.loc_i = 0
                 logger.warning('Ran out of specified locations, looping list')
+
+        next_shift = Coordinate(self.coordinates[self.loc_i] - center_shift)
         return next_shift
