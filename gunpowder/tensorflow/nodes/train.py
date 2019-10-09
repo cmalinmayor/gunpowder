@@ -151,35 +151,41 @@ class Train(GenericTrain):
 
     def start(self):
 
-        target = LocalServer.get_target()
-        logger.info("Initializing tf session, connecting to %s...", target)
+        # target = LocalServer.get_target()
+        # logger.info("Initializing tf session, connecting to %s...", target)
 
-        self.graph = tf.Graph()
+        # self.graph = tf.Graph()
         config = tf.ConfigProto()
-        config.gpu_options.allow_growth = False
-        self.session = tf.Session(
-            target=target,
-            graph=self.graph,
-            config=config)
+        config.gpu_options.allow_growth = True
+        config.allow_soft_placement = True
+        if self.session is None:
+            self.session = tf.Session(
+                # target=target,
+                graph=self.graph,
+                config=config)
 
-        with self.graph.as_default():
-            self.__read_meta_graph()
+        # self.graph = self.session.graph
+        with tf.device("/gpu:0"):
+            with self.session.graph.as_default() as g:
+                self.__read_meta_graph()
 
-        if self.summary is not None:
-            self.summary_saver = tf.summary.FileWriter(self.log_dir, self.graph)
+                if self.summary is not None:
+                    self.summary_saver = tf.summary.FileWriter(self.log_dir, g)
 
-        if self.optimizer_func is None:
+                if self.optimizer_func is None:
 
-            # get actual operations/tensors from names
-            self.optimizer = self.graph.get_operation_by_name(self.optimizer_loss_names[0])
-            self.loss = self.graph.get_tensor_by_name(self.optimizer_loss_names[1])
+                    # get actual operations/tensors from names
+                    self.optimizer = g.get_operation_by_name(
+                        self.optimizer_loss_names[0])
+                    self.loss = g.get_tensor_by_name(
+                        self.optimizer_loss_names[1])
 
-        # add symbolic gradients
-        for tensor_name in self.gradients:
-            tensor = self.graph.get_tensor_by_name(tensor_name)
-            self.tf_gradient[tensor_name] = tf.gradients(
-                self.loss,
-                [tensor])[0]
+                # add symbolic gradients
+                for tensor_name in self.gradients:
+                    tensor = g.get_tensor_by_name(tensor_name)
+                    self.tf_gradient[tensor_name] = tf.gradients(
+                        self.loss,
+                        [tensor])[0]
 
     def train_step(self, batch, request):
 
@@ -193,10 +199,11 @@ class Train(GenericTrain):
         to_compute.update(array_outputs)
 
         # compute outputs, gradients, and update variables
+        run_options = tf.RunOptions(report_tensor_allocations_upon_oom = True)
         if self.summary is not None:
-            outputs, summaries = self.session.run([to_compute, self.summary], feed_dict=inputs)
+            outputs, summaries = self.session.run([to_compute, self.summary], feed_dict=inputs,options=run_options)
         else:
-            outputs = self.session.run(to_compute, feed_dict=inputs)
+            outputs = self.session.run(to_compute, feed_dict=inputs, options=run_options)
 
         for array_key in array_outputs:
             spec = self.spec[array_key].copy()
