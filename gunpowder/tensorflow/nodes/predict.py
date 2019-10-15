@@ -178,10 +178,14 @@ class Predict(GenericPredict):
         target = LocalServer.get_target()
         logger.info("Initializing tf session, connecting to %s...", target)
 
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.allow_soft_placement = True
         self.graph = tf.Graph()
         self.session = tf.Session(
             target=target,
-            graph=self.graph)
+            graph=self.graph,
+            config=config)
 
         with self.graph.as_default():
             self.__read_checkpoint()
