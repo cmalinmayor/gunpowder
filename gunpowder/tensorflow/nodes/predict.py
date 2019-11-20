@@ -68,7 +68,7 @@ class Predict(GenericPredict):
             array_specs=None,
             graph=None,
             skip_empty=False,
-            max_shared_memory=1024*1024*1024):
+            max_shared_memory=2*1024*1024*1024):
 
         super(Predict, self).__init__(
             inputs,

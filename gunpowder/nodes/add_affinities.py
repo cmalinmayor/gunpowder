@@ -36,6 +36,38 @@ def seg_to_affgraph_2d(seg, nhood):
             max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] = t1 * t2 * t3
 
     return aff
+
+
+def seg_to_affgraph_2d_cs(seg, nhood):
+    # constructs an affinity graph from a segmentation
+    # assume affinity graph is represented as:
+    # shape = (e, z, y, x)
+    # nhood.shape = (edges, 3)
+    shape = seg.shape
+    nEdge = nhood.shape[0]
+
+    aff = np.zeros((nEdge,)+shape,dtype=np.int32)
+
+    for e in range(nEdge):
+        # first == second pixel?
+        tt1 = seg[max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
+                max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])]
+        tt2 = seg[max(0,nhood[e,0]):min(shape[0],shape[0]+nhood[e,0]), \
+                max(0,nhood[e,1]):min(shape[1],shape[1]+nhood[e,1])]
+        t1 = tt1 == tt2
+        # first pixel fg?
+        t2 = seg[max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
+                 max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] > 255
+        # second pixel fg?
+        t3 = seg[max(0,nhood[e,0]):min(shape[0],shape[0]+nhood[e,0]), \
+                 max(0,nhood[e,1]):min(shape[1],shape[1]+nhood[e,1])] > 255
+        aff[e, \
+            max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
+            max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] = t1 * t2 * t3
+
+    return aff
+
+
 def seg_to_affgraph_2d_multi(seg, nhood):
     # constructs an affinity graph from a segmentation
     # assume affinity graph is represented as:
@@ -148,6 +180,7 @@ class AddAffinities(BatchFilter):
             multiple_labels=False,
             labels_mask=None,
             unlabelled=None,
+            cityscape=False,
             affinities_mask=None):
 
         self.affinity_neighborhood = np.array(affinity_neighborhood)
@@ -157,6 +190,7 @@ class AddAffinities(BatchFilter):
         self.labels_mask = labels_mask
         self.affinities = affinities
         self.affinities_mask = affinities_mask
+        self.cityscape = cityscape
 
     def setup(self):
 
@@ -242,7 +276,9 @@ class AddAffinities(BatchFilter):
         arr = batch.arrays[self.labels].data.astype(np.int32)
         if arr.shape[0] == 1:
             arr.shape = arr.shape[1:]
-        if self.multiple_labels and len(arr.shape) == 3:
+        if self.cityscape:
+            seg_to_affgraph_fun = seg_to_affgraph_2d_cs
+        elif self.multiple_labels and len(arr.shape) == 3:
             seg_to_affgraph_fun = seg_to_affgraph_2d_multi
         elif len(arr.shape) == 2:
             seg_to_affgraph_fun = seg_to_affgraph_2d

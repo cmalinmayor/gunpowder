@@ -109,9 +109,11 @@ class Train(GenericTrain):
             inputs,
             outputs,
             gradients,
+            is_training=None,
             summary=None,
             array_specs=None,
             save_every=2000,
+            amp=False,
             log_dir='./',
             log_every=1):
 
@@ -126,6 +128,7 @@ class Train(GenericTrain):
         self.optimizer_loss_names = None
         self.optimizer = None
         self.loss = None
+        self.is_training = is_training
         self.summary = summary
         self.session = None
         self.tf_gradient = {}
@@ -138,6 +141,7 @@ class Train(GenericTrain):
         self.summary_saver = None
         self.log_dir = log_dir
         self.log_every = log_every
+        self.amp = amp
         # Check if optimizer is a str in python 2/3 compatible way.
         if isinstance(optimizer, ("".__class__, u"".__class__)):
             self.optimizer_loss_names = (optimizer, loss)
@@ -154,43 +158,89 @@ class Train(GenericTrain):
         # target = LocalServer.get_target()
         # logger.info("Initializing tf session, connecting to %s...", target)
 
-        # self.graph = tf.Graph()
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         config.allow_soft_placement = True
-        if self.session is None:
-            self.session = tf.Session(
-                # target=target,
-                graph=self.graph,
-                config=config)
 
-        # self.graph = self.session.graph
-        with tf.device("/gpu:0"):
-            with self.session.graph.as_default() as g:
-                self.__read_meta_graph()
+        if self.amp:
+            # self.graph = tf.Graph()
+            # with self.graph.as_default() as g:
+                learning_rate = tf.placeholder_with_default(
+                    0.0001, shape=(),
+                    name="learning-rate")
+
+                opt = tf.train.AdamOptimizer(
+                    learning_rate=learning_rate,
+                    beta1=0.95,
+                    beta2=0.999,
+                    epsilon=1e-8)
+                checkpoint = self.__read_meta_graph()
 
                 if self.summary is not None:
-                    self.summary_saver = tf.summary.FileWriter(self.log_dir, g)
+                    self.summary_saver = tf.summary.FileWriter(
+                        self.log_dir, tf.get_default_graph())
 
                 if self.optimizer_func is None:
-
-                    # get actual operations/tensors from names
-                    self.optimizer = g.get_operation_by_name(
-                        self.optimizer_loss_names[0])
-                    self.loss = g.get_tensor_by_name(
+                    self.loss = tf.get_default_graph().get_tensor_by_name(
                         self.optimizer_loss_names[1])
 
                 # add symbolic gradients
                 for tensor_name in self.gradients:
-                    tensor = g.get_tensor_by_name(tensor_name)
+                    tensor = tf.get_default_graph().get_tensor_by_name(
+                        tensor_name)
                     self.tf_gradient[tensor_name] = tf.gradients(
                         self.loss,
                         [tensor])[0]
+
+                opt = tf.train.experimental.enable_mixed_precision_graph_rewrite(opt)
+                self.optimizer = opt.minimize(self.loss)
+                if self.session is None:
+                    self.session = tf.Session(
+                        # target=target,
+                        # graph=self.graph,
+                        # config=config
+                    )
+                    # with self.session.graph.as_default() as g:
+                    self.__restore_or_init_graph(checkpoint)
+        else:
+            if self.session is None:
+                self.session = tf.Session(
+                    # target=target,
+                    graph=self.graph,
+                    config=config)
+            with tf.device("/gpu:0"):
+                with self.session.graph.as_default() as g:
+                    checkpoint = self.__read_meta_graph()
+                    self.__restore_or_init_graph(checkpoint)
+
+                    if self.summary is not None:
+                        self.summary_saver = tf.summary.FileWriter(
+                            self.log_dir, g)
+
+                    if self.optimizer_func is None:
+                        # get actual operations/tensors from names
+                        self.optimizer = g.get_operation_by_name(
+                            self.optimizer_loss_names[0])
+                        self.loss = g.get_tensor_by_name(
+                            self.optimizer_loss_names[1])
+
+                    # add symbolic gradients
+                    for tensor_name in self.gradients:
+                        tensor = g.get_tensor_by_name(tensor_name)
+                        self.tf_gradient[tensor_name] = tf.gradients(
+                            self.loss,
+                            [tensor])[0]
+
+        if self.is_training is not None:
+            self.is_training = tf.get_default_graph().get_tensor_by_name(
+                self.is_training)
 
     def train_step(self, batch, request):
 
         array_outputs = self.__collect_requested_outputs(request)
         inputs = self.__collect_provided_inputs(batch)
+        if self.is_training is not None:
+            inputs[self.is_training] = True
 
         to_compute = {
             'optimizer': self.optimizer,
@@ -199,11 +249,15 @@ class Train(GenericTrain):
         to_compute.update(array_outputs)
 
         # compute outputs, gradients, and update variables
-        run_options = tf.RunOptions(report_tensor_allocations_upon_oom = True)
+        run_options = tf.RunOptions(report_tensor_allocations_upon_oom=True)
         if self.summary is not None:
-            outputs, summaries = self.session.run([to_compute, self.summary], feed_dict=inputs,options=run_options)
+            outputs, summaries = self.session.run(
+                [to_compute, self.summary],
+                feed_dict=inputs, options=run_options)
         else:
-            outputs = self.session.run(to_compute, feed_dict=inputs, options=run_options)
+            outputs = self.session.run(
+                to_compute,
+                feed_dict=inputs, options=run_options)
 
         for array_key in array_outputs:
             spec = self.spec[array_key].copy()
@@ -214,10 +268,11 @@ class Train(GenericTrain):
 
         batch.loss = outputs['loss']
         batch.iteration = outputs['iteration'][0]
-        if self.summary is not None and (batch.iteration % self.log_every == 0 or batch.iteration == 1):
+        if self.summary is not None and \
+           (batch.iteration % self.log_every == 0 or batch.iteration == 1):
             self.summary_saver.add_summary(summaries, batch.iteration)
 
-        if batch.iteration%self.save_every == 0:
+        if batch.iteration % self.save_every == 0:
 
             checkpoint_name = (
                 self.meta_graph_filename +
@@ -281,6 +336,10 @@ class Train(GenericTrain):
         # find most recent checkpoint
         checkpoint_dir = os.path.dirname(self.meta_graph_filename)
         checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
+
+        return checkpoint
+
+    def __restore_or_init_graph(self, checkpoint):
 
         if checkpoint:
 
