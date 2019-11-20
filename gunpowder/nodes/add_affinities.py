@@ -38,7 +38,7 @@ def seg_to_affgraph_2d(seg, nhood):
     return aff
 
 
-def seg_to_affgraph_2d_cs(seg, nhood):
+def seg_to_affgraph_2d_cs(seg, nhood, cs_id=None):
     # constructs an affinity graph from a segmentation
     # assume affinity graph is represented as:
     # shape = (e, z, y, x)
@@ -55,12 +55,27 @@ def seg_to_affgraph_2d_cs(seg, nhood):
         tt2 = seg[max(0,nhood[e,0]):min(shape[0],shape[0]+nhood[e,0]), \
                 max(0,nhood[e,1]):min(shape[1],shape[1]+nhood[e,1])]
         t1 = tt1 == tt2
-        # first pixel fg?
-        t2 = seg[max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
-                 max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] > 255
-        # second pixel fg?
-        t3 = seg[max(0,nhood[e,0]):min(shape[0],shape[0]+nhood[e,0]), \
-                 max(0,nhood[e,1]):min(shape[1],shape[1]+nhood[e,1])] > 255
+
+        if cs_id is not None:
+            # first pixel fg?
+            t2 = np.logical_and(
+                seg[max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
+                    max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] >= cs_id,
+                seg[max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
+                    max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] < cs_id + 1000)
+            # second pixel fg?
+            t3 = np.logical_and(
+                seg[max(0,nhood[e,0]):min(shape[0],shape[0]+nhood[e,0]), \
+                    max(0,nhood[e,1]):min(shape[1],shape[1]+nhood[e,1])] >= cs_id,
+                seg[max(0,nhood[e,0]):min(shape[0],shape[0]+nhood[e,0]), \
+                    max(0,nhood[e,1]):min(shape[1],shape[1]+nhood[e,1])] < cs_id + 1000)
+        else:
+            # first pixel fg?
+            t2 = seg[max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
+                     max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] > 255
+            # second pixel fg?
+            t3 = seg[max(0,nhood[e,0]):min(shape[0],shape[0]+nhood[e,0]), \
+                     max(0,nhood[e,1]):min(shape[1],shape[1]+nhood[e,1])] > 255
         aff[e, \
             max(0,-nhood[e,0]):min(shape[0],shape[0]-nhood[e,0]), \
             max(0,-nhood[e,1]):min(shape[1],shape[1]-nhood[e,1])] = t1 * t2 * t3
@@ -181,6 +196,7 @@ class AddAffinities(BatchFilter):
             labels_mask=None,
             unlabelled=None,
             cityscape=False,
+            cs_id=None,
             affinities_mask=None):
 
         self.affinity_neighborhood = np.array(affinity_neighborhood)
@@ -191,6 +207,7 @@ class AddAffinities(BatchFilter):
         self.affinities = affinities
         self.affinities_mask = affinities_mask
         self.cityscape = cityscape
+        self.cs_id = cs_id
 
     def setup(self):
 
@@ -277,7 +294,7 @@ class AddAffinities(BatchFilter):
         if arr.shape[0] == 1:
             arr.shape = arr.shape[1:]
         if self.cityscape:
-            seg_to_affgraph_fun = seg_to_affgraph_2d_cs
+            pass
         elif self.multiple_labels and len(arr.shape) == 3:
             seg_to_affgraph_fun = seg_to_affgraph_2d_multi
         elif len(arr.shape) == 2:
@@ -287,10 +304,17 @@ class AddAffinities(BatchFilter):
             seg_to_affgraph_fun = seg_to_affgraph_multi
         else:
             seg_to_affgraph_fun = seg_to_affgraph
-        affinities = seg_to_affgraph_fun(
-            arr,
-            self.affinity_neighborhood
-        ).astype(np.uint8)
+        if self.cityscape:
+            affinities = seg_to_affgraph_2d_cs(
+                arr,
+                self.affinity_neighborhood,
+                self.cs_id
+            ).astype(np.uint8)
+        else:
+            affinities = seg_to_affgraph_fun(
+                arr,
+                self.affinity_neighborhood
+            ).astype(np.uint8)
 
 
         # crop affinities to requested ROI
