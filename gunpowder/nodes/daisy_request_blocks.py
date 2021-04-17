@@ -130,7 +130,7 @@ class DaisyRequestBlocks(BatchFilter):
                             "%s is not a vaid ROI type (read_roi or write_roi)")
 
                 self.get_upstream_provider().request_batch(chunk_request)
-
+                block.status = daisy.BlockStatus.SUCCESS
                 end = time.time()
                 if self.block_done_callback:
                     self.block_done_callback(block, start, end - start)
